@@ -1,0 +1,11 @@
+{
+  "lib/erc7579-implementation": {
+    "tag": {
+      "name": "v0.0.2",
+      "rev": "0f321b8544cea7ad3be1b5669c7998329636ef84"
+    }
+  },
+  "lib/forge-std": {
+    "rev": "8bbcf6e3f8f62f419e5429a0bd89331c85c37824"
+  }
+}
