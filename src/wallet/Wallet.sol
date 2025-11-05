@@ -19,18 +19,15 @@ import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Hol
 
 import {IWallet} from "./interfaces/IWallet.sol";
 import {WalletValidator, ExecutionRequest} from "./libraries/WalletValidator.sol";
+import {StorageHelper} from "./utils/StorageHelper.sol";
 
-contract Wallet is IWallet, ExecutionHelper, ERC1155Holder, ERC721Holder {
+contract Wallet is IWallet, StorageHelper, ExecutionHelper, ERC1155Holder, ERC721Holder {
     using ModeLib for ModeCode;
     using ExecutionLib for bytes;
 
-    // TODO: storage (для чего мне может понадобиться?)
     // TODO: подумать над тем, чтобы сделать execute с подписью пользователя
     // TODO: IERC1271 ???
     // TODO: IERC165 ???
-
-    // TODO: System of storage
-    mapping(bytes32 salt => bool isUsed) private _isSaltUsed;
 
     modifier onlySelf {
         if (msg.sender != address(this)) {
@@ -45,9 +42,10 @@ contract Wallet is IWallet, ExecutionHelper, ERC1155Holder, ERC721Holder {
     }
 
     function execute(ExecutionRequest calldata request, bytes calldata signature) external payable {
-        WalletValidator.checkRequest(request, signature, _isSaltUsed);
+        Storage storage $ = _getStorage();
+        WalletValidator.checkRequest(request, signature, $.isSaltUsed);
 
-        _isSaltUsed[request.salt] = true;
+        $.isSaltUsed[request.salt] = true;
         _execute(request.mode, request.executionCalldata);
     }
 
@@ -83,7 +81,7 @@ contract Wallet is IWallet, ExecutionHelper, ERC1155Holder, ERC721Holder {
     // TODO: cancel signature
 
     function isSaltUsed(bytes32 salt) external view returns (bool) {
-        return _isSaltUsed[salt];
+        return _getStorage().isSaltUsed[salt];
     }
 
     /// @notice Allows this contract to receive the chains native token
