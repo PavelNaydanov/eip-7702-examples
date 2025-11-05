@@ -20,15 +20,20 @@ library WalletValidator {
 
     error RequestExpired();
     error SaltAlreadyUsed();
+    error SaltCancelled();
     error InvalidSignature();
 
-    function checkRequest(ExecutionRequest memory request, bytes calldata signature, mapping(bytes32 salt => bool isUsed) storage isSaltUsed) internal view {
+    function checkRequest(ExecutionRequest memory request, bytes calldata signature, mapping(bytes32 salt => bool isUsed) storage isSaltUsed, mapping(bytes32 salt => bool isCancelled) storage isSaltCancelled) internal view {
         if (block.timestamp > request.deadline) {
             revert RequestExpired();
         }
 
         if (isSaltUsed[request.salt]) {
             revert SaltAlreadyUsed();
+        }
+
+        if (isSaltCancelled[request.salt]) {
+            revert SaltCancelled();
         }
 
         bool isValid = _isValidSignature(request, signature);

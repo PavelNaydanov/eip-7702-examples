@@ -7,6 +7,7 @@ abstract contract StorageHelper {
 
     struct Storage {
         mapping(bytes32 salt => bool isUsed) isSaltUsed;
+        mapping(bytes32 salt => bool isCancelled) isSaltCancelled;
     }
 
     function _getStorage() internal virtual pure returns (Storage storage $) {

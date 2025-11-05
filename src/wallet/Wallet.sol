@@ -25,7 +25,6 @@ contract Wallet is IWallet, StorageHelper, ExecutionHelper, ERC1155Holder, ERC72
     using ModeLib for ModeCode;
     using ExecutionLib for bytes;
 
-    // TODO: подумать над тем, чтобы сделать execute с подписью пользователя
     // TODO: IERC1271 ???
     // TODO: IERC165 ???
 
@@ -43,7 +42,7 @@ contract Wallet is IWallet, StorageHelper, ExecutionHelper, ERC1155Holder, ERC72
 
     function execute(ExecutionRequest calldata request, bytes calldata signature) external payable {
         Storage storage $ = _getStorage();
-        WalletValidator.checkRequest(request, signature, $.isSaltUsed);
+        WalletValidator.checkRequest(request, signature, $.isSaltUsed, $.isSaltCancelled);
 
         $.isSaltUsed[request.salt] = true;
         _execute(request.mode, request.executionCalldata);
@@ -76,12 +75,27 @@ contract Wallet is IWallet, StorageHelper, ExecutionHelper, ERC1155Holder, ERC72
         } else {
             revert UnsupportedCallType(callType);
         }
+
+        // TODO: emit event
     }
 
-    // TODO: cancel signature
+    function cancelSignature(bytes32 salt) external onlySelf {
+        Storage storage $ = _getStorage();
+        if ($.isSaltCancelled[salt]) {
+            revert SignatureAlreadyCancelled();
+        }
+
+        $.isSaltCancelled[salt] = true;
+
+        emit SignatureCancelled(salt);
+    }
 
     function isSaltUsed(bytes32 salt) external view returns (bool) {
         return _getStorage().isSaltUsed[salt];
+    }
+
+    function isSaltCancelled(bytes32 salt) external view returns (bool) {
+        return _getStorage().isSaltCancelled[salt];
     }
 
     /// @notice Allows this contract to receive the chains native token

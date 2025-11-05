@@ -384,6 +384,29 @@ contract WalletTest is Test {
         IWallet(user.addr).execute(request, signature);
     }
 
+    function test_executeWithSignature_revertIfSaltCancelled(uint256 amount) external {
+        address recipient = makeAddr("recipient");
+        deal(address(erc20Token), user.addr, amount);
+
+        ModeCode modeCode = ModeLib.encodeSimpleSingle();
+        bytes memory userOpCalldata = ExecutionLib.encodeSingle(
+            address(erc20Token),
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+        );
+
+        (address sender, ExecutionRequest memory request, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+
+        vm.prank(user.addr);
+        IWallet(user.addr).cancelSignature(request.salt);
+
+        vm.expectRevert(WalletValidator.SaltCancelled.selector);
+
+        vm.prank(sender);
+        IWallet(user.addr).execute(request, signature);
+
+    }
+
     function test_executeWithSignature_revertIfInvalidSignature_invalidSender(uint256 amount) external {
         address recipient = makeAddr("recipient");
         address invalidSender = makeAddr("invalidSender");
@@ -552,6 +575,27 @@ contract WalletTest is Test {
         assertTrue(success);
         assertEq(address(wallet).balance, value);
         assertEq(sender.balance, 0);
+    }
+
+    // endregion
+
+    // region - Cancel signature -
+
+    function test_cancelSignature() external {
+        bytes32 salt = keccak256(abi.encodePacked(vm.randomUint()));
+
+        vm.prank(user.addr);
+        IWallet(user.addr).cancelSignature(salt);
+
+        assertTrue(IWallet(user.addr).isSaltCancelled(salt));
+    }
+
+    function test_cancelSignature_revertIfNotSelf() external {
+        bytes32 salt = keccak256(abi.encodePacked(vm.randomUint()));
+
+        vm.expectRevert(IWallet.OnlySelf.selector);
+
+        IWallet(user.addr).cancelSignature(salt);
     }
 
     // endregion
