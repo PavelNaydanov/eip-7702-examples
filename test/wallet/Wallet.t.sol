@@ -8,15 +8,19 @@ import {ExecutionLib, Execution} from "@erc7579/lib/ExecutionLib.sol";
 import {ExecutionHelper} from "@erc7579/core/ExecutionHelper.sol";
 
 import {Wallet, IWallet} from "src/wallet/Wallet.sol";
+import {WalletValidator, ExecutionRequest} from "src/wallet/libraries/WalletValidator.sol";
+
 import {ERC721Mock} from "../mocks/ERC721Mock.sol";
 import {ERC1155Mock} from "../mocks/ERC1155Mock.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
+import {SigUtils} from "./utils/SigUtils.sol";
 
 contract WalletTest is Test {
     Wallet public wallet;
     ERC721Mock public erc721Token;
     ERC1155Mock public erc1155Token;
     ERC20Mock public erc20Token;
+    SigUtils public sigUtils;
 
     StdCheats.Account user;
 
@@ -27,6 +31,7 @@ contract WalletTest is Test {
         erc721Token = new ERC721Mock();
         erc1155Token = new ERC1155Mock();
         erc20Token = new ERC20Mock("Tether USD", "USDT", 6);
+        sigUtils = new SigUtils(user.addr);
 
         vm.startBroadcast(user.key);
 
@@ -298,6 +303,215 @@ contract WalletTest is Test {
 
     // endregion
 
+    // region - Execute with signature -
+
+    function _beforeEach_executeWithSignature(ModeCode modeCode, bytes memory userOpCalldata) private returns (address sender, ExecutionRequest memory request, bytes memory signature) {
+        sender = makeAddr("sender");
+        vm.label(sender, "Sender");
+
+        request = ExecutionRequest({
+            mode: modeCode,
+            executionCalldata: userOpCalldata,
+            salt: keccak256(abi.encodePacked(vm.randomUint())),
+            deadline: uint64(block.timestamp)
+        });
+
+        signature = _signWalletOperation(request, sender, user.key);
+    }
+
+    function test_executeWithSignature(uint256 amount) external {
+        address recipient = makeAddr("recipient");
+        deal(address(erc20Token), user.addr, amount);
+
+        ModeCode modeCode = ModeLib.encodeSimpleSingle();
+        bytes memory userOpCalldata = ExecutionLib.encodeSingle(
+            address(erc20Token),
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+        );
+
+        (address sender, ExecutionRequest memory request, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+
+        vm.prank(sender);
+        IWallet(user.addr).execute(request, signature);
+
+        assertEq(erc20Token.balanceOf(recipient), amount);
+        assertEq(erc20Token.balanceOf(user.addr), 0);
+        assertTrue(IWallet(user.addr).isSaltUsed(request.salt));
+        assertFalse(wallet.isSaltUsed(request.salt));
+    }
+
+    function test_executeWithSignature_revertIfRequestExpired(uint256 amount) external {
+        address recipient = makeAddr("recipient");
+        deal(address(erc20Token), user.addr, amount);
+
+        ModeCode modeCode = ModeLib.encodeSimpleSingle();
+        bytes memory userOpCalldata = ExecutionLib.encodeSingle(
+            address(erc20Token),
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+        );
+
+        (address sender, ExecutionRequest memory request, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+
+        vm.warp(block.timestamp + 1);
+
+        vm.expectRevert(WalletValidator.RequestExpired.selector);
+
+        vm.prank(sender);
+        IWallet(user.addr).execute(request, signature);
+    }
+
+    function test_executeWithSignature_revertIfSaltAlreadyUsed(uint256 amount) external {
+        address recipient = makeAddr("recipient");
+        deal(address(erc20Token), user.addr, amount);
+
+        ModeCode modeCode = ModeLib.encodeSimpleSingle();
+        bytes memory userOpCalldata = ExecutionLib.encodeSingle(
+            address(erc20Token),
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+        );
+
+        (address sender, ExecutionRequest memory request, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+
+        vm.prank(sender);
+        IWallet(user.addr).execute(request, signature);
+
+        vm.expectRevert(WalletValidator.SaltAlreadyUsed.selector);
+
+        vm.prank(sender);
+        IWallet(user.addr).execute(request, signature);
+    }
+
+    function test_executeWithSignature_revertIfInvalidSignature_invalidSender(uint256 amount) external {
+        address recipient = makeAddr("recipient");
+        address invalidSender = makeAddr("invalidSender");
+        deal(address(erc20Token), user.addr, amount);
+
+        ModeCode modeCode = ModeLib.encodeSimpleSingle();
+        bytes memory userOpCalldata = ExecutionLib.encodeSingle(
+            address(erc20Token),
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+        );
+
+        (, ExecutionRequest memory request, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+
+        vm.expectRevert(WalletValidator.InvalidSignature.selector);
+
+        vm.prank(invalidSender);
+        IWallet(user.addr).execute(request, signature);
+    }
+
+    function test_executeWithSignature_revertIfInvalidSignature_invalidModeRequest(uint256 amount) external {
+        address recipient = makeAddr("recipient");
+        deal(address(erc20Token), user.addr, amount);
+
+        ModeCode modeCode = ModeLib.encodeSimpleSingle();
+        bytes memory userOpCalldata = ExecutionLib.encodeSingle(
+            address(erc20Token),
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+        );
+
+        (address sender,, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+        ExecutionRequest memory invalidModeRequest = ExecutionRequest({
+            mode: ModeLib.encodeSimpleBatch(),
+            executionCalldata: userOpCalldata,
+            salt: keccak256(abi.encodePacked(vm.randomUint())),
+            deadline: uint64(block.timestamp)
+        });
+
+        vm.expectRevert(WalletValidator.InvalidSignature.selector);
+
+        vm.prank(sender);
+        IWallet(user.addr).execute(invalidModeRequest, signature);
+    }
+
+    function test_executeWithSignature_revertIfInvalidSignature_invalidExecutionCalldataRequest(uint256 amount) external {
+        address recipient = makeAddr("recipient");
+        deal(address(erc20Token), user.addr, amount);
+
+        ModeCode modeCode = ModeLib.encodeSimpleSingle();
+        bytes memory userOpCalldata = ExecutionLib.encodeSingle(
+            address(erc20Token),
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+        );
+
+        (address sender,, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+        ExecutionRequest memory invalidModeRequest = ExecutionRequest({
+            mode: modeCode,
+            executionCalldata: ExecutionLib.encodeSingle(
+                address(0),
+                0,
+                abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            ),
+            salt: keccak256(abi.encodePacked(vm.randomUint())),
+            deadline: uint64(block.timestamp)
+        });
+
+        vm.expectRevert(WalletValidator.InvalidSignature.selector);
+
+        vm.prank(sender);
+        IWallet(user.addr).execute(invalidModeRequest, signature);
+    }
+
+    function test_executeWithSignature_revertIfInvalidSignature_invalidSaltRequest(uint256 amount) external {
+        address recipient = makeAddr("recipient");
+        deal(address(erc20Token), user.addr, amount);
+
+        ModeCode modeCode = ModeLib.encodeSimpleSingle();
+        bytes memory userOpCalldata = ExecutionLib.encodeSingle(
+            address(erc20Token),
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+        );
+
+        (address sender,, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+        bytes32 invalidSalt = keccak256(abi.encodePacked(vm.randomUint()));
+        ExecutionRequest memory invalidModeRequest = ExecutionRequest({
+            mode: modeCode,
+            executionCalldata: userOpCalldata ,
+            salt: invalidSalt,
+            deadline: uint64(block.timestamp)
+        });
+
+        vm.expectRevert(WalletValidator.InvalidSignature.selector);
+
+        vm.prank(sender);
+        IWallet(user.addr).execute(invalidModeRequest, signature);
+    }
+
+    function test_executeWithSignature_revertIfInvalidSignature_invalidDeadlineRequest(uint256 amount) external {
+        address recipient = makeAddr("recipient");
+        deal(address(erc20Token), user.addr, amount);
+
+        ModeCode modeCode = ModeLib.encodeSimpleSingle();
+        bytes memory userOpCalldata = ExecutionLib.encodeSingle(
+            address(erc20Token),
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+        );
+
+        (address sender,, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+        uint64 invalidDeadline = uint64(block.timestamp + vm.randomUint(0, type(uint32).max));
+        ExecutionRequest memory invalidModeRequest = ExecutionRequest({
+            mode: modeCode,
+            executionCalldata: userOpCalldata ,
+            salt: keccak256(abi.encodePacked(vm.randomUint())),
+            deadline: invalidDeadline
+        });
+
+        vm.expectRevert(WalletValidator.InvalidSignature.selector);
+
+        vm.prank(sender);
+        IWallet(user.addr).execute(invalidModeRequest, signature);
+    }
+
+    // endregion
+
     // region - Wallet can get other tokens -
 
     function test_sendERC721() external {
@@ -338,6 +552,21 @@ contract WalletTest is Test {
         assertTrue(success);
         assertEq(address(wallet).balance, value);
         assertEq(sender.balance, 0);
+    }
+
+    // endregion
+
+    // region - Service functions -
+
+    function _signWalletOperation(ExecutionRequest memory request, address sender, uint256 privateKey)
+        private
+        view
+        returns (bytes memory signature)
+    {
+        bytes32 digest = sigUtils.getDigest(request, sender);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+        signature = abi.encodePacked(r, s, v);
     }
 
     // endregion

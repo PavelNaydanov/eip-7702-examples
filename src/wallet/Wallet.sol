@@ -18,6 +18,7 @@ import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155
 import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import {IWallet} from "./interfaces/IWallet.sol";
+import {WalletValidator, ExecutionRequest} from "./libraries/WalletValidator.sol";
 
 contract Wallet is IWallet, ExecutionHelper, ERC1155Holder, ERC721Holder {
     using ModeLib for ModeCode;
@@ -28,6 +29,9 @@ contract Wallet is IWallet, ExecutionHelper, ERC1155Holder, ERC721Holder {
     // TODO: IERC1271 ???
     // TODO: IERC165 ???
 
+    // TODO: System of storage
+    mapping(bytes32 salt => bool isUsed) private _isSaltUsed;
+
     modifier onlySelf {
         if (msg.sender != address(this)) {
             revert OnlySelf();
@@ -37,6 +41,17 @@ contract Wallet is IWallet, ExecutionHelper, ERC1155Holder, ERC721Holder {
     }
 
     function execute(ModeCode mode, bytes calldata executionCalldata) external payable onlySelf {
+        _execute(mode, executionCalldata);
+    }
+
+    function execute(ExecutionRequest calldata request, bytes calldata signature) external payable {
+        WalletValidator.checkRequest(request, signature, _isSaltUsed);
+
+        _isSaltUsed[request.salt] = true;
+        _execute(request.mode, request.executionCalldata);
+    }
+
+    function _execute(ModeCode mode, bytes calldata executionCalldata) private {
         (CallType callType, ExecType execType,,) = mode.decode();
 
         if (callType == CALLTYPE_BATCH) {
@@ -63,6 +78,12 @@ contract Wallet is IWallet, ExecutionHelper, ERC1155Holder, ERC721Holder {
         } else {
             revert UnsupportedCallType(callType);
         }
+    }
+
+    // TODO: cancel signature
+
+    function isSaltUsed(bytes32 salt) external view returns (bool) {
+        return _isSaltUsed[salt];
     }
 
     /// @notice Allows this contract to receive the chains native token
