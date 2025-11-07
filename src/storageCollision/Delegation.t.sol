@@ -21,6 +21,8 @@ contract DelegationTest is Test {
     }
 
     function test_storageCollision(uint256 value, bytes32 hashValue) external {
+        vm.assume(value != uint256(hashValue));
+
         // Прикрепляем первый смарт-контракт
         vm.startBroadcast(operator.key);
         vm.signAndAttachDelegation(address(delegationFirst), user.key);
