@@ -14,7 +14,7 @@ struct ExecutionRequest {
 library WalletValidator {
     bytes32 public constant WALLET_OPERATION_TYPEHASH = keccak256(
         abi.encodePacked(
-            "WalletSignature(bytes32 mode,bytes executionCalldata,bytes signature,bytes32 salt,uint64 deadline,address sender)"
+            "WalletSignature(bytes32 mode,bytes executionCalldata,bytes32 salt,uint64 deadline,address sender)"
         )
     );
 
