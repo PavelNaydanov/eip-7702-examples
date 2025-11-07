@@ -3,7 +3,19 @@ pragma solidity 0.8.30;
 
 import {Test, StdCheats} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ModeLib, ModeCode, ModeSelector, CALLTYPE_SINGLE, CALLTYPE_BATCH, EXECTYPE_DEFAULT, EXECTYPE_TRY, MODE_DEFAULT, ModePayload, CallType, ExecType} from "@erc7579/lib/ModeLib.sol";
+import {
+    ModeLib,
+    ModeCode,
+    ModeSelector,
+    CALLTYPE_SINGLE,
+    CALLTYPE_BATCH,
+    EXECTYPE_DEFAULT,
+    EXECTYPE_TRY,
+    MODE_DEFAULT,
+    ModePayload,
+    CallType,
+    ExecType
+} from "@erc7579/lib/ModeLib.sol";
 import {ExecutionLib, Execution} from "@erc7579/lib/ExecutionLib.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -87,9 +99,7 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         vm.prank(user.addr);
@@ -106,9 +116,7 @@ contract WalletTest is Test {
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
 
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         vm.expectRevert(IWallet.OnlySelf.selector);
@@ -124,13 +132,14 @@ contract WalletTest is Test {
         address recipient = makeAddr("recipient");
         deal(address(erc20Token), user.addr, amount);
 
-        vm.assume(invalidCallType != 0x00 && invalidCallType != 0x01 && invalidCallType != 0xFE && invalidCallType != 0xFF);
+        vm.assume(
+            invalidCallType != 0x00 && invalidCallType != 0x01 && invalidCallType != 0xFE && invalidCallType != 0xFF
+        );
 
-        ModeCode modeCode = ModeLib.encode(CallType.wrap(invalidCallType), EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(0x00));
+        ModeCode modeCode =
+            ModeLib.encode(CallType.wrap(invalidCallType), EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(0x00));
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         vm.expectRevert(abi.encodeWithSelector(IWallet.UnsupportedCallType.selector, invalidCallType));
@@ -145,9 +154,7 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         vm.prank(user.addr);
@@ -163,9 +170,7 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_TRY, MODE_DEFAULT, ModePayload.wrap(0x00));
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         vm.prank(user.addr);
@@ -180,9 +185,7 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_TRY, MODE_DEFAULT, ModePayload.wrap(0x00));
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         // TODO: We can't check event, because it has place in deep callstack. Revert is happen earlier
@@ -193,24 +196,24 @@ contract WalletTest is Test {
         assertEq(erc20Token.balanceOf(user.addr), 0);
     }
 
-    function test_execute_CALLTYPE_SINGLE_revertIfUnsupportedExecType(uint256 amount, bytes1 invalidExecType) external {
+    function test_execute_CALLTYPE_SINGLE_revertIfUnsupportedExecType(uint256 amount, bytes1 invalidExecType)
+        external
+    {
         address recipient = makeAddr("recipient");
         deal(address(erc20Token), user.addr, amount);
 
         vm.assume(invalidExecType != 0x00 && invalidExecType != 0x01);
 
-        ModeCode modeCode = ModeLib.encode(CALLTYPE_SINGLE, ExecType.wrap(invalidExecType), MODE_DEFAULT, ModePayload.wrap(0x00));
+        ModeCode modeCode =
+            ModeLib.encode(CALLTYPE_SINGLE, ExecType.wrap(invalidExecType), MODE_DEFAULT, ModePayload.wrap(0x00));
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         vm.expectRevert(abi.encodeWithSelector(IWallet.UnsupportedExecType.selector, invalidExecType));
 
         vm.prank(user.addr);
         IWallet(user.addr).execute(modeCode, userOpCalldata);
-
     }
 
     // endregion
@@ -283,7 +286,8 @@ contract WalletTest is Test {
 
         vm.assume(invalidExecType != 0x00 && invalidExecType != 0x01);
 
-        ModeCode modeCode = ModeLib.encode(CALLTYPE_BATCH, ExecType.wrap(invalidExecType), MODE_DEFAULT, ModePayload.wrap(0x00));
+        ModeCode modeCode =
+            ModeLib.encode(CALLTYPE_BATCH, ExecType.wrap(invalidExecType), MODE_DEFAULT, ModePayload.wrap(0x00));
 
         Execution[] memory executions = new Execution[](2);
         executions[0] = Execution({
@@ -309,7 +313,10 @@ contract WalletTest is Test {
 
     // region - Execute with signature -
 
-    function _beforeEach_executeWithSignature(ModeCode modeCode, bytes memory userOpCalldata) private returns (address sender, ExecutionRequest memory request, bytes memory signature) {
+    function _beforeEach_executeWithSignature(ModeCode modeCode, bytes memory userOpCalldata)
+        private
+        returns (address sender, ExecutionRequest memory request, bytes memory signature)
+    {
         sender = makeAddr("sender");
         vm.label(sender, "Sender");
 
@@ -329,12 +336,11 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
-        (address sender, ExecutionRequest memory request, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+        (address sender, ExecutionRequest memory request, bytes memory signature) =
+            _beforeEach_executeWithSignature(modeCode, userOpCalldata);
 
         vm.prank(sender);
         IWallet(user.addr).execute(request, signature);
@@ -351,12 +357,11 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
-        (address sender, ExecutionRequest memory request, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+        (address sender, ExecutionRequest memory request, bytes memory signature) =
+            _beforeEach_executeWithSignature(modeCode, userOpCalldata);
 
         vm.warp(block.timestamp + 1);
 
@@ -372,12 +377,11 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
-        (address sender, ExecutionRequest memory request, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+        (address sender, ExecutionRequest memory request, bytes memory signature) =
+            _beforeEach_executeWithSignature(modeCode, userOpCalldata);
 
         vm.prank(sender);
         IWallet(user.addr).execute(request, signature);
@@ -394,12 +398,11 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
-        (address sender, ExecutionRequest memory request, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+        (address sender, ExecutionRequest memory request, bytes memory signature) =
+            _beforeEach_executeWithSignature(modeCode, userOpCalldata);
 
         vm.prank(user.addr);
         IWallet(user.addr).cancelSignature(request.salt);
@@ -408,7 +411,6 @@ contract WalletTest is Test {
 
         vm.prank(sender);
         IWallet(user.addr).execute(request, signature);
-
     }
 
     function test_executeWithSignature_revertIfInvalidSignature_invalidSender(uint256 amount) external {
@@ -418,12 +420,11 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
-        (, ExecutionRequest memory request, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
+        (, ExecutionRequest memory request, bytes memory signature) =
+            _beforeEach_executeWithSignature(modeCode, userOpCalldata);
 
         vm.expectRevert(WalletValidator.InvalidSignature.selector);
 
@@ -437,9 +438,7 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         (address sender,, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
@@ -456,24 +455,22 @@ contract WalletTest is Test {
         IWallet(user.addr).execute(invalidModeRequest, signature);
     }
 
-    function test_executeWithSignature_revertIfInvalidSignature_invalidExecutionCalldataRequest(uint256 amount) external {
+    function test_executeWithSignature_revertIfInvalidSignature_invalidExecutionCalldataRequest(uint256 amount)
+        external
+    {
         address recipient = makeAddr("recipient");
         deal(address(erc20Token), user.addr, amount);
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         (address sender,, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
         ExecutionRequest memory invalidModeRequest = ExecutionRequest({
             mode: modeCode,
             executionCalldata: ExecutionLib.encodeSingle(
-                address(0),
-                0,
-                abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+                address(0), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
             ),
             salt: keccak256(abi.encodePacked(vm.randomUint())),
             deadline: uint64(block.timestamp)
@@ -491,16 +488,14 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         (address sender,, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
         bytes32 invalidSalt = keccak256(abi.encodePacked(vm.randomUint()));
         ExecutionRequest memory invalidModeRequest = ExecutionRequest({
             mode: modeCode,
-            executionCalldata: userOpCalldata ,
+            executionCalldata: userOpCalldata,
             salt: invalidSalt,
             deadline: uint64(block.timestamp)
         });
@@ -517,16 +512,14 @@ contract WalletTest is Test {
 
         ModeCode modeCode = ModeLib.encodeSimpleSingle();
         bytes memory userOpCalldata = ExecutionLib.encodeSingle(
-            address(erc20Token),
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
+            address(erc20Token), 0, abi.encodeWithSelector(IERC20.transfer.selector, recipient, amount)
         );
 
         (address sender,, bytes memory signature) = _beforeEach_executeWithSignature(modeCode, userOpCalldata);
         uint64 invalidDeadline = uint64(block.timestamp + vm.randomUint(0, type(uint32).max));
         ExecutionRequest memory invalidModeRequest = ExecutionRequest({
             mode: modeCode,
-            executionCalldata: userOpCalldata ,
+            executionCalldata: userOpCalldata,
             salt: keccak256(abi.encodePacked(vm.randomUint())),
             deadline: invalidDeadline
         });
@@ -571,7 +564,6 @@ contract WalletTest is Test {
     function test_sendNative(uint256 value) external {
         address sender = makeAddr("sender");
         deal(sender, value);
-
 
         vm.prank(sender);
         (bool success,) = address(wallet).call{value: value}("");
@@ -633,7 +625,7 @@ contract WalletTest is Test {
         assertTrue(wallet.supportsInterface(interfaceId), "IERC1155Receiver should be supported");
     }
 
-    function test_supportsInterface_IERC165() external view{
+    function test_supportsInterface_IERC165() external view {
         bytes4 interfaceId = type(IERC165).interfaceId;
         assertTrue(wallet.supportsInterface(interfaceId), "IERC165 should be supported");
     }
@@ -659,8 +651,10 @@ contract WalletTest is Test {
 
     function test_supportsExecutionMode_validModes() external view {
         ModeCode validModeSingleDefault = ModeLib.encodeSimpleSingle();
-        ModeCode validModeBatchDefault = ModeLib.encode(CALLTYPE_BATCH, EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(0x00));
-        ModeCode validModeSingleTry = ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_TRY, MODE_DEFAULT, ModePayload.wrap(0x00));
+        ModeCode validModeBatchDefault =
+            ModeLib.encode(CALLTYPE_BATCH, EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(0x00));
+        ModeCode validModeSingleTry =
+            ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_TRY, MODE_DEFAULT, ModePayload.wrap(0x00));
         ModeCode validModeBatchTry = ModeLib.encode(CALLTYPE_BATCH, EXECTYPE_TRY, MODE_DEFAULT, ModePayload.wrap(0x00));
 
         assertTrue(wallet.supportsExecutionMode(validModeSingleDefault), "Single Default mode should be supported");
@@ -670,22 +664,28 @@ contract WalletTest is Test {
     }
 
     function test_supportsExecutionMode_invalidCallType() external view {
-        ModeCode invalidCallTypeMode = ModeLib.encode(CallType.wrap(0x02), EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(0x00));
+        ModeCode invalidCallTypeMode =
+            ModeLib.encode(CallType.wrap(0x02), EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(0x00));
         assertFalse(wallet.supportsExecutionMode(invalidCallTypeMode), "Invalid CallType should not be supported");
     }
 
     function test_supportsExecutionMode_invalidExecType() external view {
-        ModeCode invalidExecTypeMode = ModeLib.encode(CALLTYPE_SINGLE, ExecType.wrap(0x02), MODE_DEFAULT, ModePayload.wrap(0x00));
+        ModeCode invalidExecTypeMode =
+            ModeLib.encode(CALLTYPE_SINGLE, ExecType.wrap(0x02), MODE_DEFAULT, ModePayload.wrap(0x00));
         assertFalse(wallet.supportsExecutionMode(invalidExecTypeMode), "Invalid ExecType should not be supported");
     }
 
     function test_supportsExecutionMode_invalidModeSelector() external view {
-        ModeCode invalidModeSelectorMode = ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_DEFAULT, ModeSelector.wrap("0x01"), ModePayload.wrap(0x00));
-        assertFalse(wallet.supportsExecutionMode(invalidModeSelectorMode), "Invalid ModeSelector should not be supported");
+        ModeCode invalidModeSelectorMode =
+            ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_DEFAULT, ModeSelector.wrap("0x01"), ModePayload.wrap(0x00));
+        assertFalse(
+            wallet.supportsExecutionMode(invalidModeSelectorMode), "Invalid ModeSelector should not be supported"
+        );
     }
 
     function test_supportsExecutionMode_invalidModePayload() external view {
-        ModeCode invalidModePayloadMode = ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap("0x01"));
+        ModeCode invalidModePayloadMode =
+            ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap("0x01"));
         assertFalse(wallet.supportsExecutionMode(invalidModePayloadMode), "Invalid ModePayload should not be supported");
     }
 

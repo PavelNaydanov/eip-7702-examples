@@ -31,7 +31,7 @@ contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, Executio
     using ModeLib for ModeCode;
     using ExecutionLib for bytes;
 
-    modifier onlySelf {
+    modifier onlySelf() {
         if (msg.sender != address(this)) {
             revert OnlySelf();
         }
@@ -39,7 +39,12 @@ contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, Executio
         _;
     }
 
-    function execute(ModeCode mode, bytes calldata executionCalldata) external override(IWallet, IERC7821) payable onlySelf {
+    function execute(ModeCode mode, bytes calldata executionCalldata)
+        external
+        payable
+        override(IWallet, IERC7821)
+        onlySelf
+    {
         _execute(mode, executionCalldata);
     }
 
@@ -106,7 +111,12 @@ contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, Executio
     /// @param hash Hash of the data to be signed
     /// @param signature Signature byte array associated with hash
     /// @return magicValue The bytes4 magic value 0x1626ba7e if valid
-    function isValidSignature(bytes32 hash, bytes calldata signature) public view override (IWallet, IERC1271) returns (bytes4 magicValue) {
+    function isValidSignature(bytes32 hash, bytes calldata signature)
+        public
+        view
+        override(IWallet, IERC1271)
+        returns (bytes4 magicValue)
+    {
         bool isValid = WalletValidator.isValidERC1271Signature(hash, signature);
         if (isValid) {
             return IERC1271.isValidSignature.selector;
@@ -116,12 +126,9 @@ contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, Executio
 
     /// @notice Supports the following interfaces: IWallet, IERC721Receiver, IERC1155Receiver, IERC165, IERC1271
     function supportsInterface(bytes4 interfaceId) public pure override(IERC165, ERC1155Holder) returns (bool) {
-        return interfaceId == type(IWallet).interfaceId
-            || interfaceId == type(IERC721Receiver).interfaceId
-            || interfaceId == type(IERC1155Receiver).interfaceId
-            || interfaceId == type(IERC165).interfaceId
-            || interfaceId == type(IERC1271).interfaceId
-            || interfaceId == type(IERC7821).interfaceId;
+        return interfaceId == type(IWallet).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
+            || interfaceId == type(IERC1155Receiver).interfaceId || interfaceId == type(IERC165).interfaceId
+            || interfaceId == type(IERC1271).interfaceId || interfaceId == type(IERC7821).interfaceId;
     }
 
     /**

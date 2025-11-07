@@ -12,7 +12,7 @@ contract Delegation {
 
     /// @notice Пересылаем нативную валюту на смарт-контракт target
     function buyAndSendToTarget(address target) external payable {
-        (bool success, ) = target.call{value: msg.value}("");
+        (bool success,) = target.call{value: msg.value}("");
 
         if (!success) {
             revert();

@@ -10,7 +10,7 @@ abstract contract StorageHelper {
         mapping(bytes32 salt => bool isCancelled) isSaltCancelled;
     }
 
-    function _getStorage() internal virtual pure returns (Storage storage $) {
+    function _getStorage() internal pure virtual returns (Storage storage $) {
         assembly {
             $.slot := _STORAGE_LOCATION
         }
