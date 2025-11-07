@@ -602,6 +602,18 @@ contract WalletTest is Test {
         IWallet(user.addr).cancelSignature(salt);
     }
 
+    function test_cancelSignature_revertIfSignatureAlreadyCancelled() external {
+        bytes32 salt = keccak256(abi.encodePacked(vm.randomUint()));
+
+        vm.prank(user.addr);
+        IWallet(user.addr).cancelSignature(salt);
+
+        vm.expectRevert(IWallet.SignatureAlreadyCancelled.selector);
+
+        vm.prank(user.addr);
+        IWallet(user.addr).cancelSignature(salt);
+    }
+
     // endregion
 
     // region - Supports Interface -
