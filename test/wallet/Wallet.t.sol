@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {Test, StdCheats, Vm, console} from "forge-std/Test.sol";
-import {IERC20, IERC20Errors} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Test, StdCheats} from "forge-std/Test.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ModeLib, ModeCode, ModeSelector, CALLTYPE_SINGLE, CALLTYPE_BATCH, EXECTYPE_DEFAULT, EXECTYPE_TRY, MODE_DEFAULT, ModePayload, CallType, ExecType} from "@erc7579/lib/ModeLib.sol";
 import {ExecutionLib, Execution} from "@erc7579/lib/ExecutionLib.sol";
-import {ExecutionHelper} from "@erc7579/core/ExecutionHelper.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 import {Wallet, IWallet} from "src/wallet/Wallet.sol";
 import {IERC7821} from "src/wallet/interfaces/IERC7821.sol";
@@ -626,6 +626,11 @@ contract WalletTest is Test {
         assertTrue(wallet.supportsInterface(interfaceId), "IERC165 should be supported");
     }
 
+    function test_supportsInterface_IERC1271() external view {
+        bytes4 interfaceId = type(IERC1271).interfaceId;
+        assertTrue(wallet.supportsInterface(interfaceId), "IERC1271 should be supported");
+    }
+
     function test_supportsInterface_IERC7821() external view {
         bytes4 interfaceId = type(IERC7821).interfaceId;
         assertTrue(wallet.supportsInterface(interfaceId), "IERC7821 should be supported");
@@ -670,6 +675,33 @@ contract WalletTest is Test {
     function test_supportsExecutionMode_invalidModePayload() external view {
         ModeCode invalidModePayloadMode = ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap("0x01"));
         assertFalse(wallet.supportsExecutionMode(invalidModePayloadMode), "Invalid ModePayload should not be supported");
+    }
+
+    // endregion
+
+    // region - ERC1271 -
+
+    function test_isValidSignature() external {
+        bytes32 hash = keccak256("test message");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(user.key, hash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        vm.prank(user.addr);
+        bytes4 magicValue = IWallet(user.addr).isValidSignature(hash, signature);
+
+        assertEq(magicValue, IERC1271.isValidSignature.selector);
+    }
+
+    function test_isValidSignature_invalidSignature() external {
+        bytes32 hash = keccak256("test message");
+        uint256 invalidKey = 0x12345;
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(invalidKey, hash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        vm.prank(user.addr);
+        bytes4 magicValue = wallet.isValidSignature(hash, signature);
+
+        assertEq(magicValue, bytes4(0xffffffff));
     }
 
     // endregion

@@ -20,18 +20,16 @@ import {
 import {ERC1155Holder, IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import {ERC721Holder, IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 import {IWallet} from "./interfaces/IWallet.sol";
 import {IERC7821} from "./interfaces/IERC7821.sol";
 import {WalletValidator, ExecutionRequest} from "./libraries/WalletValidator.sol";
 import {StorageHelper} from "./utils/StorageHelper.sol";
 
-contract Wallet is IWallet, IERC165, IERC7821, StorageHelper, ExecutionHelper, ERC1155Holder, ERC721Holder {
+contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, ExecutionHelper, ERC1155Holder, ERC721Holder {
     using ModeLib for ModeCode;
     using ExecutionLib for bytes;
-
-    // TODO: IERC1271 ???
-    // TODO: IERC165 ???
 
     modifier onlySelf {
         if (msg.sender != address(this)) {
@@ -103,13 +101,26 @@ contract Wallet is IWallet, IERC165, IERC7821, StorageHelper, ExecutionHelper, E
         return _getStorage().isSaltCancelled[salt];
     }
 
-    /// @notice Supports the following interfaces: IWallet, IERC721Receiver, IERC1155Receiver, IERC165, IERC1271 (TODO: )
+    /// @notice Implementation of ERC1271
+    /// @dev Should return whether the signature provided is valid for the provided data
+    /// @param hash Hash of the data to be signed
+    /// @param signature Signature byte array associated with hash
+    /// @return magicValue The bytes4 magic value 0x1626ba7e if valid
+    function isValidSignature(bytes32 hash, bytes calldata signature) public view override (IWallet, IERC1271) returns (bytes4 magicValue) {
+        bool isValid = WalletValidator.isValidERC1271Signature(hash, signature);
+        if (isValid) {
+            return IERC1271.isValidSignature.selector;
+        }
+        return 0xffffffff;
+    }
+
+    /// @notice Supports the following interfaces: IWallet, IERC721Receiver, IERC1155Receiver, IERC165, IERC1271
     function supportsInterface(bytes4 interfaceId) public pure override(IERC165, ERC1155Holder) returns (bool) {
         return interfaceId == type(IWallet).interfaceId
             || interfaceId == type(IERC721Receiver).interfaceId
             || interfaceId == type(IERC1155Receiver).interfaceId
             || interfaceId == type(IERC165).interfaceId
-            // || interfaceId == type(IERC1271).interfaceId // TODO: supported ли?
+            || interfaceId == type(IERC1271).interfaceId
             || interfaceId == type(IERC7821).interfaceId;
     }
 

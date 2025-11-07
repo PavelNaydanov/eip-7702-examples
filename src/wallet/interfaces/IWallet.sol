@@ -18,4 +18,5 @@ interface IWallet {
     function isSaltUsed(bytes32 salt) external view returns (bool);
     function isSaltCancelled(bytes32 salt) external view returns (bool);
     function cancelSignature(bytes32 salt) external;
+    function isValidSignature(bytes32 hash, bytes calldata signature) external view returns (bytes4 magicValue);
 }

@@ -23,6 +23,10 @@ library WalletValidator {
     error SaltCancelled();
     error InvalidSignature();
 
+    function isValidERC1271Signature(bytes32 digest, bytes calldata signature) internal view returns (bool) {
+        return ECDSA.recover(digest, signature) == address(this);
+    }
+
     function checkRequest(ExecutionRequest memory request, bytes calldata signature, mapping(bytes32 salt => bool isUsed) storage isSaltUsed, mapping(bytes32 salt => bool isCancelled) storage isSaltCancelled) internal view {
         if (block.timestamp > request.deadline) {
             revert RequestExpired();
