@@ -27,10 +27,19 @@ import {IERC7821} from "./interfaces/IERC7821.sol";
 import {WalletValidator, ExecutionRequest} from "./libraries/WalletValidator.sol";
 import {StorageHelper} from "./utils/StorageHelper.sol";
 
+/**
+ * @title Wallet
+ * @notice A smart contract wallet implementation that supports ERC-7702, ERC-7579 and various other standards
+ * @dev Implements IWallet, IERC165, IERC7821, IERC1271, and token receiver interfaces
+ */
 contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, ExecutionHelper, ERC1155Holder, ERC721Holder {
     using ModeLib for ModeCode;
     using ExecutionLib for bytes;
 
+    /**
+     * @notice Ensures the function can only be called by the owner of EOA
+     * @dev Used to protect functions that should only be called through execute()
+     */
     modifier onlySelf() {
         if (msg.sender != address(this)) {
             revert OnlySelf();
@@ -39,6 +48,11 @@ contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, Executio
         _;
     }
 
+    /**
+     * @notice Executes a transaction or batch of transactions with the specified mode
+     * @param mode The execution mode specifying how the transaction(s) should be handled
+     * @param executionCalldata The encoded transaction data to be executed
+     */
     function execute(ModeCode mode, bytes calldata executionCalldata)
         external
         payable
@@ -48,6 +62,11 @@ contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, Executio
         _execute(mode, executionCalldata);
     }
 
+    /**
+     * @notice Executes a transaction after validating the provided signature
+     * @param request The execution request containing mode, calldata, salt and deadline
+     * @param signature The signature authorizing the execution
+     */
     function execute(ExecutionRequest calldata request, bytes calldata signature) external payable {
         Storage storage $ = _getStorage();
         WalletValidator.checkRequest(request, signature, $.isSaltUsed, $.isSaltCancelled);
@@ -87,6 +106,10 @@ contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, Executio
         emit Executed(msg.sender, mode, executionCalldata);
     }
 
+    /**
+     * @notice Cancels a signature by marking its salt as cancelled
+     * @param salt The salt of the signature to cancel
+     */
     function cancelSignature(bytes32 salt) external onlySelf {
         Storage storage $ = _getStorage();
         if ($.isSaltCancelled[salt]) {
@@ -98,10 +121,20 @@ contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, Executio
         emit SignatureCancelled(salt);
     }
 
+    /**
+     * @notice Checks if a specific salt has been used
+     * @param salt The salt to check
+     * @return bool True if the salt has been used, false otherwise
+     */
     function isSaltUsed(bytes32 salt) external view returns (bool) {
         return _getStorage().isSaltUsed[salt];
     }
 
+    /**
+     * @notice Checks if a specific salt has been cancelled
+     * @param salt The salt to check
+     * @return bool True if the salt has been cancelled, false otherwise
+     */
     function isSaltCancelled(bytes32 salt) external view returns (bool) {
         return _getStorage().isSaltCancelled[salt];
     }
