@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { CallType, ExecType, ModeCode } from "@erc7579/lib/ModeLib.sol";
+import {CallType, ExecType, ModeCode} from "@erc7579/lib/ModeLib.sol";
 import {ExecutionRequest} from "../libraries/WalletValidator.sol";
 
 interface IWallet {
     event SignatureCancelled(bytes32 salt);
+    event Executed(address indexed sender, ModeCode indexed mode, bytes executionCalldata);
 
     error OnlySelf();
     error UnsupportedModuleType(uint256 moduleTypeId);

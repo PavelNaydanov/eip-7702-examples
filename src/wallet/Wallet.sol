@@ -79,7 +79,7 @@ contract Wallet is IWallet, IERC165, IERC7821, IERC1271, StorageHelper, Executio
             revert UnsupportedCallType(callType);
         }
 
-        // TODO: emit event
+        emit Executed(msg.sender, mode, executionCalldata);
     }
 
     function cancelSignature(bytes32 salt) external onlySelf {
