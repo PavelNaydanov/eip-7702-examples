@@ -3,11 +3,15 @@ pragma solidity 0.8.30;
 
 import {Test, StdCheats, Vm, console} from "forge-std/Test.sol";
 import {IERC20, IERC20Errors} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ModeLib, ModeCode, CALLTYPE_SINGLE, CALLTYPE_BATCH, EXECTYPE_DEFAULT, EXECTYPE_TRY, MODE_DEFAULT, ModePayload, CallType, ExecType} from "@erc7579/lib/ModeLib.sol";
+import {ModeLib, ModeCode, ModeSelector, CALLTYPE_SINGLE, CALLTYPE_BATCH, EXECTYPE_DEFAULT, EXECTYPE_TRY, MODE_DEFAULT, ModePayload, CallType, ExecType} from "@erc7579/lib/ModeLib.sol";
 import {ExecutionLib, Execution} from "@erc7579/lib/ExecutionLib.sol";
 import {ExecutionHelper} from "@erc7579/core/ExecutionHelper.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 
 import {Wallet, IWallet} from "src/wallet/Wallet.sol";
+import {IERC7821} from "src/wallet/interfaces/IERC7821.sol";
 import {WalletValidator, ExecutionRequest} from "src/wallet/libraries/WalletValidator.sol";
 
 import {ERC721Mock} from "../mocks/ERC721Mock.sol";
@@ -596,6 +600,76 @@ contract WalletTest is Test {
         vm.expectRevert(IWallet.OnlySelf.selector);
 
         IWallet(user.addr).cancelSignature(salt);
+    }
+
+    // endregion
+
+    // region - Supports Interface -
+
+    function test_supportsInterface_IWallet() external view {
+        bytes4 interfaceId = type(IWallet).interfaceId;
+        assertTrue(wallet.supportsInterface(interfaceId), "IWallet should be supported");
+    }
+
+    function test_supportsInterface_IERC721Receiver() external view {
+        bytes4 interfaceId = type(IERC721Receiver).interfaceId;
+        assertTrue(wallet.supportsInterface(interfaceId), "IERC721Receiver should be supported");
+    }
+
+    function test_supportsInterface_IERC1155Receiver() external view {
+        bytes4 interfaceId = type(IERC1155Receiver).interfaceId;
+        assertTrue(wallet.supportsInterface(interfaceId), "IERC1155Receiver should be supported");
+    }
+
+    function test_supportsInterface_IERC165() external view{
+        bytes4 interfaceId = type(IERC165).interfaceId;
+        assertTrue(wallet.supportsInterface(interfaceId), "IERC165 should be supported");
+    }
+
+    function test_supportsInterface_IERC7821() external view {
+        bytes4 interfaceId = type(IERC7821).interfaceId;
+        assertTrue(wallet.supportsInterface(interfaceId), "IERC7821 should be supported");
+    }
+
+    function test_supportsInterface_unsupportedInterface() external view {
+        bytes4 unsupportedInterfaceId = 0x12345678;
+        assertFalse(wallet.supportsInterface(unsupportedInterfaceId), "Unsupported interface should return false");
+    }
+
+    // endregion
+
+    // region - Supports Execution Mode -
+
+    function test_supportsExecutionMode_validModes() external view {
+        ModeCode validModeSingleDefault = ModeLib.encodeSimpleSingle();
+        ModeCode validModeBatchDefault = ModeLib.encode(CALLTYPE_BATCH, EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(0x00));
+        ModeCode validModeSingleTry = ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_TRY, MODE_DEFAULT, ModePayload.wrap(0x00));
+        ModeCode validModeBatchTry = ModeLib.encode(CALLTYPE_BATCH, EXECTYPE_TRY, MODE_DEFAULT, ModePayload.wrap(0x00));
+
+        assertTrue(wallet.supportsExecutionMode(validModeSingleDefault), "Single Default mode should be supported");
+        assertTrue(wallet.supportsExecutionMode(validModeBatchDefault), "Batch Default mode should be supported");
+        assertTrue(wallet.supportsExecutionMode(validModeSingleTry), "Single Try mode should be supported");
+        assertTrue(wallet.supportsExecutionMode(validModeBatchTry), "Batch Try mode should be supported");
+    }
+
+    function test_supportsExecutionMode_invalidCallType() external view {
+        ModeCode invalidCallTypeMode = ModeLib.encode(CallType.wrap(0x02), EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap(0x00));
+        assertFalse(wallet.supportsExecutionMode(invalidCallTypeMode), "Invalid CallType should not be supported");
+    }
+
+    function test_supportsExecutionMode_invalidExecType() external view {
+        ModeCode invalidExecTypeMode = ModeLib.encode(CALLTYPE_SINGLE, ExecType.wrap(0x02), MODE_DEFAULT, ModePayload.wrap(0x00));
+        assertFalse(wallet.supportsExecutionMode(invalidExecTypeMode), "Invalid ExecType should not be supported");
+    }
+
+    function test_supportsExecutionMode_invalidModeSelector() external view {
+        ModeCode invalidModeSelectorMode = ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_DEFAULT, ModeSelector.wrap("0x01"), ModePayload.wrap(0x00));
+        assertFalse(wallet.supportsExecutionMode(invalidModeSelectorMode), "Invalid ModeSelector should not be supported");
+    }
+
+    function test_supportsExecutionMode_invalidModePayload() external view {
+        ModeCode invalidModePayloadMode = ModeLib.encode(CALLTYPE_SINGLE, EXECTYPE_DEFAULT, MODE_DEFAULT, ModePayload.wrap("0x01"));
+        assertFalse(wallet.supportsExecutionMode(invalidModePayloadMode), "Invalid ModePayload should not be supported");
     }
 
     // endregion

@@ -6,22 +6,27 @@ import {ExecutionLib} from "@erc7579/lib/ExecutionLib.sol";
 import {
     ModeLib,
     ModeCode,
+    ModeSelector,
+    ModePayload,
     Execution,
     CallType,
     ExecType,
     CALLTYPE_BATCH,
     EXECTYPE_DEFAULT,
     EXECTYPE_TRY,
-    CALLTYPE_SINGLE
+    CALLTYPE_SINGLE,
+    MODE_DEFAULT
 } from "@erc7579/lib/ModeLib.sol";
-import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
-import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import {ERC1155Holder, IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+import {ERC721Holder, IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 import {IWallet} from "./interfaces/IWallet.sol";
+import {IERC7821} from "./interfaces/IERC7821.sol";
 import {WalletValidator, ExecutionRequest} from "./libraries/WalletValidator.sol";
 import {StorageHelper} from "./utils/StorageHelper.sol";
 
-contract Wallet is IWallet, StorageHelper, ExecutionHelper, ERC1155Holder, ERC721Holder {
+contract Wallet is IWallet, IERC165, IERC7821, StorageHelper, ExecutionHelper, ERC1155Holder, ERC721Holder {
     using ModeLib for ModeCode;
     using ExecutionLib for bytes;
 
@@ -36,7 +41,7 @@ contract Wallet is IWallet, StorageHelper, ExecutionHelper, ERC1155Holder, ERC72
         _;
     }
 
-    function execute(ModeCode mode, bytes calldata executionCalldata) external payable onlySelf {
+    function execute(ModeCode mode, bytes calldata executionCalldata) external override(IWallet, IERC7821) payable onlySelf {
         _execute(mode, executionCalldata);
     }
 
@@ -96,6 +101,31 @@ contract Wallet is IWallet, StorageHelper, ExecutionHelper, ERC1155Holder, ERC72
 
     function isSaltCancelled(bytes32 salt) external view returns (bool) {
         return _getStorage().isSaltCancelled[salt];
+    }
+
+    /// @notice Supports the following interfaces: IWallet, IERC721Receiver, IERC1155Receiver, IERC165, IERC1271 (TODO: )
+    function supportsInterface(bytes4 interfaceId) public pure override(IERC165, ERC1155Holder) returns (bool) {
+        return interfaceId == type(IWallet).interfaceId
+            || interfaceId == type(IERC721Receiver).interfaceId
+            || interfaceId == type(IERC1155Receiver).interfaceId
+            || interfaceId == type(IERC165).interfaceId
+            // || interfaceId == type(IERC1271).interfaceId // TODO: supported ли?
+            || interfaceId == type(IERC7821).interfaceId;
+    }
+
+    /**
+     * @notice Returns a boolean indicating if a mode is supported
+     * @param mode The mode to validate
+     * @return True if the mode is supported, else - false
+     */
+    function supportsExecutionMode(ModeCode mode) external view virtual override returns (bool) {
+        (CallType callType, ExecType execType, ModeSelector modeSelector, ModePayload modePayload) = mode.decode();
+
+        return (
+            (callType == CALLTYPE_SINGLE || callType == CALLTYPE_BATCH)
+                && (execType == EXECTYPE_DEFAULT || execType == EXECTYPE_TRY) && (modeSelector == MODE_DEFAULT)
+                && (ModePayload.unwrap(modePayload) == bytes22(0x00))
+        );
     }
 
     /// @notice Allows this contract to receive the chains native token
